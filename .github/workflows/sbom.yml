@@ -1,0 +1,27 @@
+name: "Generate SBOMs"
+
+on:
+  push:
+    branches:
+      - main
+jobs:
+  generate-sboms:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: spdx-sbom
+        uses: anchore/sbom-action@v0.18.0
+        with:
+          format: spdx
+          artifact-name: yams-sbom.spdx
+
+      - name: cyclonedx-sbom
+        uses: anchore/sbom-action@v0.18.0
+        with:
+          format: cyclonedx-json
+          artifact-name: yams-sbom-cdx.json
