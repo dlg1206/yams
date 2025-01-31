@@ -1,6 +1,8 @@
 [package]
 name = "yams"
-version = "0.1.0"
+version = "0.0.0"
 edition = "2021"
 
 [dependencies]
+tokio = { version = "1.43.0", features = ["full"] }
+reqwest = "0.12.12"
