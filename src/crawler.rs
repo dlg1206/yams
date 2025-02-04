@@ -5,6 +5,7 @@
 
 use reqwest::Error;
 use std::collections::HashMap;
+use std::sync::mpsc;
 /// Represents a Crawler
 ///
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -13,11 +14,24 @@ use tokio::time::sleep;
 
 const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36";
 const DEFAULT_SLEEP: Duration = Duration::from_secs(5);
+const DEFAULT_MAX_CONCURRENT_REQUESTS: i32 = 5;
+const DEFAULT_MAX_RETRIES: i32 = 3;
 
+#[derive(Debug)]
 pub struct Crawler {
     url_queue: (Sender<String>, Receiver<String>),
     max_concurrent_requests: i32,
     max_retries_before_quit: i32,
+}
+
+impl Default for Crawler {
+    fn default() -> Self {
+        Self {
+            url_queue: channel(),
+            max_concurrent_requests: DEFAULT_MAX_CONCURRENT_REQUESTS,
+            max_retries_before_quit: DEFAULT_MAX_RETRIES,
+        }
+    }
 }
 
 pub trait Parser {
@@ -25,13 +39,9 @@ pub trait Parser {
 }
 
 impl Crawler {
-    pub fn new(
-        url_queue: (Sender<String>, Receiver<String>),
-        max_concurrent_requests: i32,
-        max_retries_before_quit: i32,
-    ) -> Self {
+    pub fn new(max_concurrent_requests: i32, max_retries_before_quit: i32) -> Self {
         Self {
-            url_queue,
+            url_queue: channel(),
             max_concurrent_requests,
             max_retries_before_quit,
         }
