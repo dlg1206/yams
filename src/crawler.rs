@@ -3,6 +3,7 @@
 //!
 //! @author Derek Garcia
 
+use log::{debug, warn};
 use reqwest::Error;
 use std::sync::Arc;
 use std::time::Duration;
@@ -42,6 +43,7 @@ async fn download_html(url: &str) -> Result<String, Error> {
 /// - `url`: The url to process
 /// - `parser`: Custom parser to parse the html at the url
 async fn process_url<P: Parser>(tx: Sender<String>, url: String, parser: P) {
+    debug!("crawler | Processing {}", url);
     let html = download_html(&url).await.unwrap(); // todo err handle
     let (parse_urls, download_urls) = parser.parse(&url, &html);
     // send the new parse urls to parse channel
@@ -49,6 +51,7 @@ async fn process_url<P: Parser>(tx: Sender<String>, url: String, parser: P) {
         tx.send(new_url.to_owned()).await.unwrap();
     }
     // todo download
+    debug!("crawler | Proceed {}", url);
 }
 
 ///
@@ -121,6 +124,7 @@ impl Crawler {
         let mut cur_retires = 0;
 
         // add seed url
+        debug!("crawler | Starting crawler with {}", root_url);
         tx.send(root_url).await.unwrap();
 
         /*
@@ -148,9 +152,11 @@ impl Crawler {
                 Err(_) => {
                     // break if out of retries
                     if cur_retires > self.max_retries_before_quit {
+                        warn!("crawler | Exceeded retries: exiting. . .");
                         break;
                     }
                     // else sleep and try again
+                    warn!("crawler | No urls! Retrying. . .");
                     sleep(DEFAULT_SLEEP).await;
                     cur_retires += 1;
                 }
