@@ -8,6 +8,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::Semaphore;
+use tokio::time::sleep;
 
 /// Defaults
 const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36";
@@ -117,21 +118,43 @@ impl Crawler {
         // create parse url queue
         let (tx, mut rx) = channel::<String>(DEFAULT_BUFFER_SIZE);
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent_requests));
+        let mut cur_retires = 0;
 
         // add seed url
         tx.send(root_url).await.unwrap();
 
-        // todo - This loop constantly spawns tasks. Ideally we spawn n worker tasks that listen to the channel
-        while let Some(url) = rx.recv().await {
-            // block until can acquire semaphore
-            let permit = semaphore.clone().acquire_owned().await.unwrap();
-            // create a copy of transmitter and parser and spawn task to process the url
-            let tx = tx.clone();
-            let parser = parser.clone();
-            tokio::spawn(async move {
-                process_url(tx, url, parser).await;
-                drop(permit);
-            });
+        /*
+        todo -
+         This loop constantly spawns tasks. Ideally we spawn n worker tasks that listen to the
+         channel, but due to limitations of tokio, we can only have one receiver at time
+         */
+        loop {
+            match rx.try_recv() {
+                Ok(url) => {
+                    // block until can acquire semaphore
+                    let permit = semaphore.clone().acquire_owned().await.unwrap();
+                    // create a copy of transmitter and parser and spawn async task to process the url
+                    let tx = tx.clone();
+                    let parser = parser.clone();
+                    tokio::spawn(async move {
+                        process_url(tx, url, parser).await;
+                        drop(permit);
+                    });
+                    // reset retries if err
+                    if cur_retires != 0 {
+                        cur_retires = 0;
+                    }
+                }
+                Err(_) => {
+                    // break if out of retries
+                    if cur_retires > self.max_retries_before_quit {
+                        break;
+                    }
+                    // else sleep and try again
+                    sleep(DEFAULT_SLEEP).await;
+                    cur_retires += 1;
+                }
+            };
         }
     }
 }
