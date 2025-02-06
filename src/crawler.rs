@@ -42,7 +42,7 @@ async fn download_html(url: &str) -> Result<String, Error> {
 /// - `tx`: The transmitter to the parse url channel
 /// - `url`: The url to process
 /// - `parser`: Custom parser to parse the html at the url
-async fn process_url<P: Parser>(tx: Sender<String>, url: String, parser: P) {
+async fn process_url<P: Parse>(tx: Sender<String>, url: String, parser: P) {
     debug!("crawler | Processing {}", url);
     let html = download_html(&url).await.unwrap(); // todo err handle
     let (parse_urls, download_urls) = parser.parse(&url, &html);
@@ -57,7 +57,7 @@ async fn process_url<P: Parser>(tx: Sender<String>, url: String, parser: P) {
 ///
 /// Parser trait that must be implemented by users
 ///
-pub trait Parser: Clone + Send + Sync + 'static {
+pub trait Parse: Clone + Send + Sync + 'static {
     /// Custom parser method that parses html to generate the next urls to process
     ///
     /// # Parameters
@@ -117,7 +117,7 @@ impl Crawler {
     /// - `root_url`: The root url to start crawling at
     /// - `parser`: Custom parser to parse the html at the url
     #[tokio::main]
-    pub async fn crawl<P: Parser>(&self, root_url: String, parser: P) {
+    pub async fn crawl<P: Parse>(&self, root_url: String, parser: P) {
         // create parse url queue
         let (tx, mut rx) = channel::<String>(DEFAULT_BUFFER_SIZE);
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent_requests));

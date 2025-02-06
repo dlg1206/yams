@@ -3,4 +3,5 @@
 //!
 //! @author Derek Garcia
 
-mod crawler;
+pub mod crawler;
+pub mod downloader;
