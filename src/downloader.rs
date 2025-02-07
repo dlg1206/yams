@@ -25,7 +25,7 @@ pub trait Download: Clone + Send + Sync + 'static {
 
 async fn download_task<D: Download>(tx: Sender<String>, url: &str, location: &str, downloader: &D) {
     debug!("downloader | Processing {}", url);
-    match downloader.download(url, location) {
+    match downloader.download(url, location).await {
         Ok(file_path) => {
             tx.send(file_path).await.unwrap();
         }
@@ -43,12 +43,6 @@ pub async fn start_download<D: Download>(
     max_retries_before_quit: i32,
     downloader: D,
 ) {
-    /*
-    param download and analyze channel
-    while download queue not empty:
-        download file to tmp dir
-        add tmp path to analyze channel
-     */
     // create tmp download dir - todo allow user to replace with their own
 
     // get download tx and rx
